@@ -1,6 +1,6 @@
 # cFS 衛星系統交接手冊
 
-最後驗證日期：2026-08-01
+最後驗證日期：2026-08-02
 
 主要工作環境：WSL2、Ubuntu 24.04、x86_64 host
 
@@ -79,7 +79,16 @@ flowchart LR
 
 ## 4. 交接前的重要 Git 狀態
 
-截至 2026-08-01，本 POC 的主要成果仍是工作區中的未提交變更。**只重新 clone 上游 repository 不會得到目前成果。**
+截至 2026-08-02，程式與文件已整理成以下本地 commits：
+
+| Repository | Branch | Commit | 內容 |
+| --- | --- | --- | --- |
+| OSAL submodule | `handoff/freertos-static-loader` | `e3739d9` | FreeRTOS static module/symbol lookup |
+| FreeRTOS satellite | `handoff/freertos-satellite-poc` | `119ab56` | Mission app、startup、bridge 與 build/run scripts |
+| FreeRTOS satellite | `handoff/freertos-satellite-poc` | `9bec3e5` | POC、交接文件、簡報與逐字稿 |
+| GroundSystem | `handoff/satellite-mission-groundsystem` | `fe53126` | Mission command 與 telemetry packet 設定 |
+
+這些 commits 目前仍只存在本機，尚未推送到可供下一位接手者存取的 remote。**只重新 clone 上游 repository 仍然不會得到目前成果。**
 
 FreeRTOS repository 的本地成果包括：
 
@@ -100,13 +109,13 @@ GroundSystem repository 的本地成果包括：
 - `Subsystems/cmdGui/command-pages.txt` 修改
 - `Subsystems/cmdGui/quick-buttons.txt` 修改
 
-正式交接前建議完成以下事項：
+正式交接前仍需完成以下事項：
 
-1. 為 `osal` 建立可存取的 fork，先提交 OSAL static loader patch。
-2. 更新 parent repository 的 submodule URL 與 commit pointer。
-3. 提交 `cfs-freertos-satellite` 的其他修改。
-4. 為 `cFS-GroundSystem` 建立 fork，提交 mission packet 設定。
-5. 在本文件記錄最後可重現的 branch、tag 或 commit SHA。
+1. 為 `osal` 建立可存取的 fork，推送 `e3739d9`。
+2. 將 parent repository 的 OSAL submodule URL 改成該 fork，確認新機可抓到 `e3739d9`。
+3. 將 `handoff/freertos-satellite-poc` 推送到可交接的 FreeRTOS repository。
+4. 將 `handoff/satellite-mission-groundsystem` 推送到可交接的 GroundSystem repository。
+5. 在另一個空目錄重新 clone 並執行完整驗收清單。
 
 在以上工作尚未完成前，交接應直接保留整個目前工作目錄，不可只保存 GitHub URL。
 
@@ -631,7 +640,7 @@ wsl --update
 
 ## 14. 下一位接手者的優先工作
 
-1. 先將現有兩個 repository 與 OSAL submodule 的修改正式提交並備份。
+1. 將現有兩個 handoff branches 與 OSAL submodule branch 推送到可交接的 remotes，並在乾淨目錄測試 clone。
 2. 選擇 FreeRTOS 網路方案：FreeRTOS+TCP、其他可用 IP stack，或 UART command ingest。
 3. 將 GroundSystem command 真正送入 cFE Software Bus。
 4. 將 mission app 改為訂閱 command MID，而非由 host bridge 模擬 command 行為。
