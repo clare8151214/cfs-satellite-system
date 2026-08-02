@@ -115,7 +115,7 @@ list(APPEND MISSION_GLOBAL_APPLIST )
 # but the apps are statically linked.  
 # This list is effectively appended to every TGTx_STATIC_APPLIST in targets.cmake.  
 # Example:
-list(APPEND MISSION_GLOBAL_STATIC_APPLIST bsp-arm-mps2-an385 freertos-fatfs)
+list(APPEND MISSION_GLOBAL_STATIC_APPLIST bsp-arm-mps2-an385 freertos-fatfs satellite-sample)
 
 # FT_INSTALL_SUBDIR indicates where the black box test data files (lua scripts) should
 # be copied during the install process.
@@ -126,7 +126,7 @@ SET(MISSION_CPUNAMES mps2)
 
 SET(mps2_PROCESSORID 1)
 SET(mps2_APPLIST )
-# SET(mps2_STATIC_APPLIST )
+SET(mps2_STATIC_SYMLIST SatSample_AppMain,SAT_SAMPLE_APP)
 # SET(mps2_FILELIST cfe_es_startup.scr)
 list(APPEND mps2_EMBED_FILELIST
     "STARTUP_SCR,cfe_es_startup.scr"
@@ -137,4 +137,3 @@ list(APPEND mps2_EMBED_FILELIST
 # SET(cpu2_PROCESSORID 2)
 # SET(cpu2_APPLIST ci_lab to_lab sch_lab)
 # SET(cpu2_FILELIST cfe_es_startup.scr)
-

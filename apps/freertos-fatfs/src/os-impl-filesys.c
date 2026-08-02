@@ -31,6 +31,26 @@ extern const unsigned long STARTUP_SCR_SIZE;
 FF_Disk_t pxDiskRAM;
 uint8_t rambuffer[RAMDISK_SECTORS * RAMDISK_SECTOR_SIZE];
 
+typedef struct
+{
+    const char *data;
+    size_t size;
+    size_t position;
+    bool is_open;
+} EmbeddedFile_t;
+
+static EmbeddedFile_t startup_script = {
+    .data = STARTUP_SCR_DATA,
+    .size = 0,
+    .position = 0,
+    .is_open = false
+};
+
+static bool is_startup_script_path(const char *path)
+{
+    return path != NULL && strcmp(path, "/cf/cfe_es_startup.scr") == 0;
+}
+
 // work in progress
 int32 OS_FreeRTOS_FileSysAPI_Impl_Init(void){
     // verify cache size is multiple and at least twice as a big as sector size
@@ -96,26 +116,108 @@ int32 OS_DirectoryClose(osal_id_t dir_id){
     return -1;
 }
 int32 OS_OpenCreate(osal_id_t *filedes, const char *path, int32 flags, int32 access){
-    return -1;
+    if (filedes == NULL || path == NULL)
+    {
+        return OS_INVALID_POINTER;
+    }
+
+    if (is_startup_script_path(path) && flags == OS_FILE_FLAG_NONE && access == OS_READ_ONLY)
+    {
+        startup_script.size = STARTUP_SCR_SIZE;
+        startup_script.position = 0;
+        startup_script.is_open = true;
+        *filedes = OS_ObjectIdFromInteger(1);
+        return OS_SUCCESS;
+    }
+
+    return OS_ERROR;
 }
 int32 OS_close(osal_id_t filedes){
-    return -1;
+    if (OS_ObjectIdToInteger(filedes) == 1 && startup_script.is_open)
+    {
+        startup_script.is_open = false;
+        startup_script.position = 0;
+        return OS_SUCCESS;
+    }
+
+    return OS_ERROR;
 }
 int32 OS_fsBlocksFree(const char *name){
     return -1;
 }
 int32 OS_lseek(osal_id_t filedes, int32 offset, uint32 whence){
-    return -1;
+    size_t new_position;
+
+    if (OS_ObjectIdToInteger(filedes) != 1 || !startup_script.is_open)
+    {
+        return OS_ERROR;
+    }
+
+    if (whence == OS_SEEK_SET)
+    {
+        new_position = offset;
+    }
+    else if (whence == OS_SEEK_CUR)
+    {
+        new_position = startup_script.position + offset;
+    }
+    else if (whence == OS_SEEK_END)
+    {
+        new_position = startup_script.size + offset;
+    }
+    else
+    {
+        return OS_ERROR;
+    }
+
+    if (new_position > startup_script.size)
+    {
+        return OS_ERROR;
+    }
+
+    startup_script.position = new_position;
+    return startup_script.position;
 }
 int32 OS_read(osal_id_t filedes, void *buffer, size_t nbytes){
-    return -1;
+    size_t bytes_remaining;
+    size_t bytes_to_copy;
+
+    if (OS_ObjectIdToInteger(filedes) != 1 || !startup_script.is_open || buffer == NULL)
+    {
+        return OS_ERROR;
+    }
+
+    if (startup_script.position >= startup_script.size)
+    {
+        return 0;
+    }
+
+    bytes_remaining = startup_script.size - startup_script.position;
+    bytes_to_copy = nbytes < bytes_remaining ? nbytes : bytes_remaining;
+    memcpy(buffer, &startup_script.data[startup_script.position], bytes_to_copy);
+    startup_script.position += bytes_to_copy;
+
+    return bytes_to_copy;
 }
 int32 OS_remove(const char *path){
     return -1;
 }
 int32 OS_stat(const char *path, os_fstat_t *filestats){
-    return -1;
+    if (path == NULL || filestats == NULL)
+    {
+        return OS_INVALID_POINTER;
+    }
+
+    if (is_startup_script_path(path))
+    {
+        memset(filestats, 0, sizeof(*filestats));
+        filestats->FileModeBits = OS_FILESTAT_MODE_READ;
+        filestats->FileSize = STARTUP_SCR_SIZE;
+        return OS_SUCCESS;
+    }
+
+    return OS_ERROR;
 }
 int32 OS_write(osal_id_t filedes, const void *buffer, size_t nbytes){
-    return -1;
+    return OS_ERR_NOT_IMPLEMENTED;
 }
