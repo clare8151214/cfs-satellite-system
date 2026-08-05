@@ -88,4 +88,4 @@ VM image、cloud image、seed image、toolchain 與 build output 都由腳本產
 
 ## 目前限制
 
-FreeRTOS OSAL socket layer 尚未實作，因此 command/telemetry 目前使用 host-side bridge。GroundSystem command 還沒有真正注入 FreeRTOS cFE Software Bus；詳細狀態與下一步請參考交接手冊。
+FreeRTOS OSAL socket layer 尚未實作，因此 command/telemetry 目前使用 host-side bridge。GroundSystem command 還沒有真正注入 FreeRTOS cFE Software Bus；詳細狀態與限制請參考交接手冊。

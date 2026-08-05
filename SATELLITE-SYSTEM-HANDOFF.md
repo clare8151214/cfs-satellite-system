@@ -17,9 +17,8 @@
 Terminal 1 啟動地面站：
 
 ```bash
-cd ~/cfs-satellite-system/tools/cFS-GroundSystem
-make -C Subsystems/cmdUtil
-python3 GroundSystem.py
+cd ~/cfs-satellite-system
+./start-ground-system.sh
 ```
 
 Terminal 2 啟動 FreeRTOS 衛星：
@@ -75,17 +74,20 @@ flowchart LR
 | FreeRTOS flight image | `~/cfs-satellite-system/build-mps2/cortex-m3/default_mps2/mps2/core-mps2` |
 | 地面站 | `~/cfs-satellite-system/tools/cFS-GroundSystem` |
 | Ubuntu ARM64 VM | `~/cfs-satellite-system/vm/ubuntu-arm64` |
-| Ubuntu VM 內的 cFS | `/home/johnson/nasa/cFS` |
+| Ubuntu VM 內的 cFS | `/home/cfs/nasa/cFS` |
 
 ## 4. Monorepo Git 狀態
 
-截至 2026-08-05，FreeRTOS flight software、OSAL patch、GroundSystem、VM scripts 與文件已整合到單一 repository：
+截至 2026-08-05，FreeRTOS flight software、OSAL patch、GroundSystem、VM scripts 與文件已整合到單一 private repository：
 
 ```text
 ~/cfs-satellite-system
 ```
 
 原本的 submodules 已轉成普通追蹤目錄。新接手者只需要 clone 這一個 repository，不需要另外取得本機的 OSAL 或 GroundSystem branches，也不需要執行 `git submodule update`。各上游元件的 URL、版本與 SHA 記錄在 `THIRD_PARTY_SOURCES.md`。
+
+Repository URL：<https://github.com/clare8151214/cfs-satellite-system>
+預設分支：`main`
 
 整合成果包括：
 
@@ -99,17 +101,18 @@ flowchart LR
 - `mps2_defs/mps2_cfe_es_startup.scr` 修改
 - `osal/src/os/freertos/todo/os-impl-module.c` static loader 修改
 
-GroundSystem repository 的本地成果包括：
+GroundSystem 整合內容包括：
 
-- `Subsystems/tlmGUI/satellite-mission-hk-tlm.txt`
-- `Subsystems/tlmGUI/telemetry-pages.txt` 修改
-- `Subsystems/cmdGui/command-pages.txt` 修改
-- `Subsystems/cmdGui/quick-buttons.txt` 修改
+- `tools/cFS-GroundSystem/Subsystems/tlmGUI/satellite-mission-hk-tlm.txt`
+- `tools/cFS-GroundSystem/Subsystems/tlmGUI/telemetry-pages.txt`
+- `tools/cFS-GroundSystem/Subsystems/cmdGui/command-pages.txt`
+- `tools/cFS-GroundSystem/Subsystems/cmdGui/quick-buttons.txt`
 
-正式交接前只剩兩個 Git 工作：
+目前 monorepo 已完成 Git 交接準備：
 
-1. 為 monorepo 設定一個新 remote 並推送 `main`。
-2. 在另一個空目錄 clone 該 remote，執行完整驗收清單。
+1. `main` 已推送到上述 private remote。
+2. 已在乾淨目錄 clone 並重新建置 FreeRTOS flight image。
+3. 已編譯 GroundSystem `cmdUtil` 並完成 QEMU command/telemetry smoke test。
 
 ## 5. Host 環境建立
 
@@ -151,12 +154,11 @@ echo "$DISPLAY"
 
 ## 6. 建立與啟動地面站
 
-### 6.1 使用目前交接工作區
+### 6.1 一鍵啟動地面站
 
 ```bash
-cd ~/cfs-satellite-system/tools/cFS-GroundSystem
-make -C Subsystems/cmdUtil
-python3 GroundSystem.py
+cd ~/cfs-satellite-system
+./start-ground-system.sh
 ```
 
 主視窗必須保持開啟，因為 `RoutingService.py` 會：
@@ -165,7 +167,7 @@ python3 GroundSystem.py
 - 發布到 ZeroMQ `ipc:///tmp/GroundSystem-<使用者名稱>`。
 - 供 Telemetry System 訂閱封包。
 
-### 6.2 Monorepo 內建地面站
+### 6.2 手動啟動地面站
 
 ```bash
 cd ~/cfs-satellite-system/tools/cFS-GroundSystem
@@ -221,15 +223,22 @@ Telemetry payload layout：
 從交接 remote clone monorepo：
 
 ```bash
-git clone <MONOREPO_URL> cfs-satellite-system
+git clone https://github.com/clare8151214/cfs-satellite-system.git cfs-satellite-system
 cd cfs-satellite-system
 ```
 
-所有必要原始碼已包含在 repository 內，不需要另外初始化 submodules。`<MONOREPO_URL>` 應在正式推送後替換成學校或團隊的 Git URL。
+所有必要原始碼已包含在 repository 內，不需要另外初始化 submodules。
 
 ### 7.2 安裝 ARM bare-metal toolchain
 
-建置腳本預期以下固定位置：
+推薦直接執行 host setup：
+
+```bash
+cd ~/cfs-satellite-system
+./setup-host.sh
+```
+
+若只需要手動安裝 toolchain，建置腳本預期以下固定位置：
 
 ```text
 ~/cfs-satellite-system/toolchain/gcc-arm-none-eabi-9-2019-q4-major/bin/arm-none-eabi-gcc
@@ -366,6 +375,8 @@ FreeRTOS/cFE 目前已知限制：
 | cFS command | host UDP `1234` -> guest UDP `1234` |
 | Guest 帳號 | `cfs`，可用 `VM_USER` 覆寫 |
 | Guest cFS | `/home/cfs/nasa/cFS` |
+
+VM 磁碟、cloud-init seed 與 metadata 不納入 Git，第一次使用時由 `create-vm.sh` 下載 Ubuntu cloud image 並產生。若已有 `~/qemu-arm64` 的舊 VM，請將它視為獨立的既有環境；本 monorepo 的腳本預設使用上述 `vm/ubuntu-arm64` 目錄。
 
 第一次使用先建立 image 與 cloud-init seed：
 
@@ -577,7 +588,7 @@ QEMU user-mode networking 中：
 ### Ubuntu ARM64 VM
 
 - [ ] QEMU 可完成 Ubuntu 開機。
-- [ ] `ssh -p 2222 johnson@127.0.0.1` 可登入。
+- [ ] `ssh -p 2222 cfs@127.0.0.1` 可登入。
 - [ ] guest 的 `core-cpu1` 可進入 `OPERATIONAL state`。
 - [ ] command 可由 host UDP `1234` 送進 guest。
 - [ ] TO_LAB destination 設為 `10.0.2.2:2234` 後，地面站收到 telemetry。
