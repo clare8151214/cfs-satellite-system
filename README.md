@@ -1,71 +1,91 @@
-# `cfs-freertos`
+# cFS Satellite System
 
-This is a skeleton cFS flight distribution comprising [cFE](https://github.com/nasa/cfe), [OSAL](https://github.com/osal), and [PSP](https://github.com/nasa/psp) with support for [FreeRTOS](https://freertos.org).
+本 repository 是可單獨交接的 cFS 衛星系統 monorepo，整合：
 
-**This is a work in progress.**
+- FreeRTOS + cFE + OSAL + PSP 衛星 flight image。
+- QEMU `mps2-an385` ARM Cortex-M3 模擬環境。
+- `SAT_SAMPLE_APP` mission app。
+- cFS GroundSystem command/telemetry GUI。
+- Ubuntu ARM64 cFS 比較用虛擬機建立與啟動腳本。
+- 研究進度、架構及交接文件。
 
-## Building cFS
+所有原本的 Git submodules 都已轉成普通追蹤目錄。完成 clone 後不需要執行 `git submodule update`。
 
-Fetch any git submodules:
+## 目錄
 
-```
-git pull
-git submodule update --init --recursive
-```
-
-On a Linux host computer:
-
-```
-docker-compose run mps2 bash
-```
-
-Then, inside the Ubuntu 18.04 docker container:
-
-```
-make
-```
-
-The relevant `cmake` configuration files are identified in `mps2_defs/`.
-
-## Running in QEMU
-
-Emulate in QEMU:
-
-```
-qemu-system-arm \
-    -machine mps2-an385 \
-    -monitor null \
-    -semihosting \
-    --semihosting-config enable=on,target=native \
-    -kernel ./build-mps2/cortex-m3/default_mps2/mps2/core-mps2 \
-    -serial stdio \
-    -nographic \
-    -gdb tcp::5555 \
-    -S
+```text
+apps/satellite-sample/       FreeRTOS mission app
+cfe/                         cFE source snapshot
+osal/                        OSAL source，包含 FreeRTOS static loader patch
+psp/                         PSP source snapshot
+lib/                         FreeRTOS kernel 與 FreeRTOS+FAT
+tools/cFS-GroundSystem/      客製地面站
+vm/ubuntu-arm64/             Ubuntu ARM64 VM 建立與啟動工具
+SATELLITE-SYSTEM-HANDOFF.md  完整交接手冊
+THIRD_PARTY_SOURCES.md       上游來源與 commit SHA
 ```
 
-Debug in `gdb`:
+## 第一次建立環境
 
-```
-arm-none-eabi-gdb-py \
-    --ex "target extended-remote localhost:5555" \
-    -x ./apps/bsp-arm-mps2-an385/scripts/gdb/debug.gdbinit \
-    -q ./build-mps2/cortex-m3/default_mps2/mps2/core-mps2
+```bash
+./setup-host.sh
 ```
 
+此腳本會安裝 QEMU、GroundSystem 所需套件，並下載建置 FreeRTOS image 使用的 Arm GNU Toolchain。需要 `sudo` 及網路連線。
 
-### Bootstrapping on a Linux host computer
+## FreeRTOS 衛星
 
-The toolchain is separately installed in the Docker container but it can also be useful to have certain host binaries available on the host computer. The gcc cross toolchain for ARM is installed like so:
+建置：
 
-```
-export CFS_PROJECT_PATH=/opt/cfs-freertos
-
-mkdir -p ${CFS_PROJECT_PATH}/toolchain
-
-wget -qO- https://developer.arm.com/-/media/Files/downloads/gnu-rm/9-2019q4/gcc-arm-none-eabi-9-2019-q4-major-x86_64-linux.tar.bz2 | tar xvj -C ${CFS_PROJECT_PATH}/toolchain/
-
-export PATH="${PATH}:${CFS_PROJECT_PATH}/toolchain/gcc-arm-none-eabi-9-2019-q4-major/bin"
+```bash
+./build-satellite-freertos-poc.sh
 ```
 
-You also need to install Docker and `docker-compose`.
+啟動 QEMU 衛星與 GroundSystem bridge：
+
+```bash
+./start-satellite-freertos-poc.sh
+```
+
+成功時應看到：
+
+```text
+CFE_ES_Main entering OPERATIONAL state
+SAT_MISSION_HK,...
+```
+
+## 地面站
+
+另一個 terminal 執行：
+
+```bash
+./start-ground-system.sh
+```
+
+GroundSystem 使用 UDP `1234` 傳送 command，並在 UDP `2234` 接收 telemetry。
+
+## Ubuntu ARM64 比較環境
+
+建立 VM：
+
+```bash
+./vm/ubuntu-arm64/create-vm.sh
+```
+
+啟動 VM：
+
+```bash
+./vm/ubuntu-arm64/start-satellite-system.sh
+```
+
+VM image、cloud image、seed image、toolchain 與 build output 都由腳本產生，並由 `.gitignore` 排除。
+
+## 文件
+
+- [完整交接手冊](SATELLITE-SYSTEM-HANDOFF.md)
+- [FreeRTOS POC 技術說明](SATELLITE-FREERTOS-POC.md)
+- [上游原始碼來源](THIRD_PARTY_SOURCES.md)
+
+## 目前限制
+
+FreeRTOS OSAL socket layer 尚未實作，因此 command/telemetry 目前使用 host-side bridge。GroundSystem command 還沒有真正注入 FreeRTOS cFE Software Bus；詳細狀態與下一步請參考交接手冊。

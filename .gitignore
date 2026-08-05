@@ -1,2 +1,13 @@
 build*/
 toolchain/
+__pycache__/
+*.pyc
+
+# Generated GroundSystem utility
+tools/cFS-GroundSystem/Subsystems/cmdUtil/cmdUtil
+
+# Generated Ubuntu ARM64 VM data
+vm/ubuntu-arm64/*.img
+vm/ubuntu-arm64/user-data
+vm/ubuntu-arm64/meta-data
+vm/ubuntu-arm64/*.download

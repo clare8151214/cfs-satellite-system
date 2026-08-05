@@ -4,7 +4,7 @@ This workspace is a proof of concept for running cFS/cFE on FreeRTOS instead of 
 
 ## What Works
 
-- Source workspace: `~/cfs-freertos-satellite`
+- Source workspace: `~/cfs-satellite-system`
 - Base repo: `https://github.com/pztrick/cfs-freertos`
 - Target: QEMU `mps2-an385` ARM Cortex-M3
 - RTOS: FreeRTOS
@@ -19,14 +19,14 @@ This workspace is a proof of concept for running cFS/cFE on FreeRTOS instead of 
 ## Build
 
 ```bash
-cd ~/cfs-freertos-satellite
+cd ~/cfs-satellite-system
 ./build-satellite-freertos-poc.sh
 ```
 
 ## Run
 
 ```bash
-cd ~/cfs-freertos-satellite
+cd ~/cfs-satellite-system
 ./start-satellite-freertos-poc.sh
 ```
 
@@ -35,7 +35,7 @@ This starts QEMU through `satellite-ground-bridge.py` by default.
 To run QEMU without the GroundSystem bridge:
 
 ```bash
-cd ~/cfs-freertos-satellite
+cd ~/cfs-satellite-system
 SATELLITE_BRIDGE=0 ./start-satellite-freertos-poc.sh
 ```
 
@@ -56,7 +56,7 @@ Ctrl-a x
 Start the ground station in another terminal:
 
 ```bash
-cd ~/cFS-GroundSystem
+cd ~/cfs-satellite-system/tools/cFS-GroundSystem
 python3 GroundSystem.py
 ```
 

@@ -1,6 +1,6 @@
 # cFS 衛星系統交接手冊
 
-最後驗證日期：2026-08-02
+最後驗證日期：2026-08-05
 
 主要工作環境：WSL2、Ubuntu 24.04、x86_64 host
 
@@ -17,7 +17,7 @@
 Terminal 1 啟動地面站：
 
 ```bash
-cd ~/cFS-GroundSystem
+cd ~/cfs-satellite-system/tools/cFS-GroundSystem
 make -C Subsystems/cmdUtil
 python3 GroundSystem.py
 ```
@@ -25,7 +25,7 @@ python3 GroundSystem.py
 Terminal 2 啟動 FreeRTOS 衛星：
 
 ```bash
-cd ~/cfs-freertos-satellite
+cd ~/cfs-satellite-system
 ./start-satellite-freertos-poc.sh
 ```
 
@@ -71,26 +71,23 @@ flowchart LR
 
 | 用途 | 目前位置 |
 | --- | --- |
-| FreeRTOS 衛星 POC | `~/cfs-freertos-satellite` |
-| FreeRTOS flight image | `~/cfs-freertos-satellite/build-mps2/cortex-m3/default_mps2/mps2/core-mps2` |
-| 地面站 | `~/cFS-GroundSystem` |
-| Ubuntu ARM64 VM | `~/qemu-arm64` |
+| FreeRTOS 衛星 POC | `~/cfs-satellite-system` |
+| FreeRTOS flight image | `~/cfs-satellite-system/build-mps2/cortex-m3/default_mps2/mps2/core-mps2` |
+| 地面站 | `~/cfs-satellite-system/tools/cFS-GroundSystem` |
+| Ubuntu ARM64 VM | `~/cfs-satellite-system/vm/ubuntu-arm64` |
 | Ubuntu VM 內的 cFS | `/home/johnson/nasa/cFS` |
 
-## 4. 交接前的重要 Git 狀態
+## 4. Monorepo Git 狀態
 
-截至 2026-08-02，程式與文件已整理成以下本地 commits：
+截至 2026-08-05，FreeRTOS flight software、OSAL patch、GroundSystem、VM scripts 與文件已整合到單一 repository：
 
-| Repository | Branch | Commit | 內容 |
-| --- | --- | --- | --- |
-| OSAL submodule | `handoff/freertos-static-loader` | `e3739d9` | FreeRTOS static module/symbol lookup |
-| FreeRTOS satellite | `handoff/freertos-satellite-poc` | `119ab56` | Mission app、startup、bridge 與 build/run scripts |
-| FreeRTOS satellite | `handoff/freertos-satellite-poc` | `9bec3e5` | POC、交接文件、簡報與逐字稿 |
-| GroundSystem | `handoff/satellite-mission-groundsystem` | `fe53126` | Mission command 與 telemetry packet 設定 |
+```text
+~/cfs-satellite-system
+```
 
-這些 commits 目前仍只存在本機，尚未推送到可供下一位接手者存取的 remote。**只重新 clone 上游 repository 仍然不會得到目前成果。**
+原本的 submodules 已轉成普通追蹤目錄。新接手者只需要 clone 這一個 repository，不需要另外取得本機的 OSAL 或 GroundSystem branches，也不需要執行 `git submodule update`。各上游元件的 URL、版本與 SHA 記錄在 `THIRD_PARTY_SOURCES.md`。
 
-FreeRTOS repository 的本地成果包括：
+整合成果包括：
 
 - `apps/satellite-sample/`
 - `build-satellite-freertos-poc.sh`
@@ -100,7 +97,7 @@ FreeRTOS repository 的本地成果包括：
 - `apps/freertos-fatfs/src/os-impl-filesys.c` 修改
 - `mps2_defs/targets.cmake` 修改
 - `mps2_defs/mps2_cfe_es_startup.scr` 修改
-- `osal/src/os/freertos/todo/os-impl-module.c` submodule 修改
+- `osal/src/os/freertos/todo/os-impl-module.c` static loader 修改
 
 GroundSystem repository 的本地成果包括：
 
@@ -109,15 +106,10 @@ GroundSystem repository 的本地成果包括：
 - `Subsystems/cmdGui/command-pages.txt` 修改
 - `Subsystems/cmdGui/quick-buttons.txt` 修改
 
-正式交接前仍需完成以下事項：
+正式交接前只剩兩個 Git 工作：
 
-1. 為 `osal` 建立可存取的 fork，推送 `e3739d9`。
-2. 將 parent repository 的 OSAL submodule URL 改成該 fork，確認新機可抓到 `e3739d9`。
-3. 將 `handoff/freertos-satellite-poc` 推送到可交接的 FreeRTOS repository。
-4. 將 `handoff/satellite-mission-groundsystem` 推送到可交接的 GroundSystem repository。
-5. 在另一個空目錄重新 clone 並執行完整驗收清單。
-
-在以上工作尚未完成前，交接應直接保留整個目前工作目錄，不可只保存 GitHub URL。
+1. 為 monorepo 設定一個新 remote 並推送 `main`。
+2. 在另一個空目錄 clone 該 remote，執行完整驗收清單。
 
 ## 5. Host 環境建立
 
@@ -162,7 +154,7 @@ echo "$DISPLAY"
 ### 6.1 使用目前交接工作區
 
 ```bash
-cd ~/cFS-GroundSystem
+cd ~/cfs-satellite-system/tools/cFS-GroundSystem
 make -C Subsystems/cmdUtil
 python3 GroundSystem.py
 ```
@@ -173,17 +165,15 @@ python3 GroundSystem.py
 - 發布到 ZeroMQ `ipc:///tmp/GroundSystem-<使用者名稱>`。
 - 供 Telemetry System 訂閱封包。
 
-### 6.2 從 NASA 上游重新建立基礎地面站
+### 6.2 Monorepo 內建地面站
 
 ```bash
-cd ~
-git clone --branch dev https://github.com/nasa/cFS-GroundSystem.git
-cd cFS-GroundSystem
+cd ~/cfs-satellite-system/tools/cFS-GroundSystem
 make -C Subsystems/cmdUtil
 python3 GroundSystem.py
 ```
 
-這只會得到 NASA 基礎版本。還必須從交接工作區帶入第 4 節列出的四個 mission 設定檔，才會看到 `Satellite Mission` 與 `Satellite Mission HK`。
+此目錄已包含 `Satellite Mission` 與 `Satellite Mission HK` 設定，不需要再 clone NASA GroundSystem 或手動複製 packet definition。
 
 ### 6.3 FreeRTOS POC 的地面站操作
 
@@ -228,30 +218,27 @@ Telemetry payload layout：
 
 ### 7.1 取得原始碼
 
-優先使用已交接、包含本地修改的 `cfs-freertos-satellite` repository。
-
-基礎上游是：
+從交接 remote clone monorepo：
 
 ```bash
-git clone https://github.com/pztrick/cfs-freertos.git cfs-freertos-satellite
-cd cfs-freertos-satellite
-git submodule update --init --recursive
+git clone <MONOREPO_URL> cfs-satellite-system
+cd cfs-satellite-system
 ```
 
-但上游只有 skeleton，不包含本專題新增的 mission app、bridge、startup filesystem patch 與 OSAL static loader patch。
+所有必要原始碼已包含在 repository 內，不需要另外初始化 submodules。`<MONOREPO_URL>` 應在正式推送後替換成學校或團隊的 Git URL。
 
 ### 7.2 安裝 ARM bare-metal toolchain
 
 建置腳本預期以下固定位置：
 
 ```text
-~/cfs-freertos-satellite/toolchain/gcc-arm-none-eabi-9-2019-q4-major/bin/arm-none-eabi-gcc
+~/cfs-satellite-system/toolchain/gcc-arm-none-eabi-9-2019-q4-major/bin/arm-none-eabi-gcc
 ```
 
 建立方式：
 
 ```bash
-cd ~/cfs-freertos-satellite
+cd ~/cfs-satellite-system
 mkdir -p toolchain
 wget -O /tmp/gcc-arm-none-eabi-9-2019-q4-major.tar.bz2 \
     https://developer.arm.com/-/media/Files/downloads/gnu-rm/9-2019q4/gcc-arm-none-eabi-9-2019-q4-major-x86_64-linux.tar.bz2
@@ -269,7 +256,7 @@ tar -xjf /tmp/gcc-arm-none-eabi-9-2019-q4-major.tar.bz2 -C toolchain
 ### 7.3 建置 flight image
 
 ```bash
-cd ~/cfs-freertos-satellite
+cd ~/cfs-satellite-system
 ./build-satellite-freertos-poc.sh
 ```
 
@@ -290,7 +277,7 @@ file build-mps2/cortex-m3/default_mps2/mps2/core-mps2
 ### 7.4 一鍵啟動 FreeRTOS 衛星與 bridge
 
 ```bash
-cd ~/cfs-freertos-satellite
+cd ~/cfs-satellite-system
 ./start-satellite-freertos-poc.sh
 ```
 
@@ -363,13 +350,13 @@ FreeRTOS/cFE 目前已知限制：
 - QEMU cFE 時間尚未正確初始化。
 - 啟動可看到 CDS 大小不足訊息：目前配置 `8192`，需求約 `38932`。
 
-## 9. 使用目前 Ubuntu ARM64 衛星虛擬機
+## 9. 使用 Ubuntu ARM64 衛星虛擬機
 
 目前 VM 資訊：
 
 | 項目 | 值 |
 | --- | --- |
-| 目錄 | `~/qemu-arm64` |
+| 目錄 | `~/cfs-satellite-system/vm/ubuntu-arm64` |
 | Guest OS | Ubuntu 24.04 ARM64 |
 | Machine | QEMU `virt` |
 | CPU | Cortex-A72，4 cores |
@@ -377,20 +364,27 @@ FreeRTOS/cFE 目前已知限制：
 | Disk | `ubuntu-arm64.img`，20 GiB virtual qcow2 |
 | SSH | host `127.0.0.1:2222` -> guest `22` |
 | cFS command | host UDP `1234` -> guest UDP `1234` |
-| Guest 帳號 | `johnson` |
-| Guest cFS | `/home/johnson/nasa/cFS` |
+| Guest 帳號 | `cfs`，可用 `VM_USER` 覆寫 |
+| Guest cFS | `/home/cfs/nasa/cFS` |
+
+第一次使用先建立 image 與 cloud-init seed：
+
+```bash
+cd ~/cfs-satellite-system/vm/ubuntu-arm64
+./create-vm.sh
+```
 
 啟動：
 
 ```bash
-cd ~/qemu-arm64
+cd ~/cfs-satellite-system/vm/ubuntu-arm64
 ./start-satellite-system.sh
 ```
 
 首次開機可能需要約 1 至 2 分鐘。另一個 terminal 登入：
 
 ```bash
-ssh -p 2222 johnson@127.0.0.1
+ssh -p 2222 cfs@127.0.0.1
 ```
 
 在 guest 裡啟動 Ubuntu 版本 cFS：
@@ -418,11 +412,20 @@ sudo poweroff
 
 以下步驟會建立一台新的 Ubuntu ARM64 cloud-image VM。
 
+建議直接使用 monorepo 腳本，它會完成第 10.1 至 10.3 節：
+
+```bash
+cd ~/cfs-satellite-system/vm/ubuntu-arm64
+./create-vm.sh
+```
+
+以下保留手動流程供除錯與修改環境時參考。
+
 ### 10.1 建立目錄並下載映像
 
 ```bash
-mkdir -p ~/qemu-arm64
-cd ~/qemu-arm64
+mkdir -p ~/cfs-satellite-system/vm/ubuntu-arm64
+cd ~/cfs-satellite-system/vm/ubuntu-arm64
 wget https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-arm64.img
 cp noble-server-cloudimg-arm64.img ubuntu-arm64.img
 qemu-img resize ubuntu-arm64.img 20G
@@ -451,7 +454,7 @@ ssh-keygen -y -f ~/.ssh/id_ed25519
 ```yaml
 #cloud-config
 users:
-  - name: johnson
+  - name: cfs
     groups: sudo
     shell: /bin/bash
     sudo: ALL=(ALL) NOPASSWD:ALL
@@ -505,7 +508,7 @@ qemu-system-aarch64 \
 另一個 terminal 登入：
 
 ```bash
-ssh -p 2222 johnson@127.0.0.1
+ssh -p 2222 cfs@127.0.0.1
 ```
 
 ### 10.5 在 ARM64 VM 內建立 NASA cFS
@@ -548,10 +551,10 @@ QEMU user-mode networking 中：
 
 建議啟動順序：
 
-1. Host 執行 `~/qemu-arm64/start-satellite-system.sh`。
+1. Host 執行 `~/cfs-satellite-system/vm/ubuntu-arm64/start-satellite-system.sh`。
 2. SSH 進 guest。
 3. Guest 在 `~/nasa/cFS/build/exe/cpu1` 執行 `./core-cpu1`。
-4. Host 執行 `~/cFS-GroundSystem/GroundSystem.py`。
+4. Host 執行 `~/cfs-satellite-system/tools/cFS-GroundSystem/GroundSystem.py`。
 5. 開啟 Command System。
 6. 發送 `Enable Tlm`，telemetry destination 輸入 `10.0.2.2`。
 7. 開啟 Telemetry System。
@@ -586,7 +589,7 @@ QEMU user-mode networking 中：
 確認 toolchain 是否位於 build script 預期位置：
 
 ```bash
-ls -l ~/cfs-freertos-satellite/toolchain/gcc-arm-none-eabi-9-2019-q4-major/bin/arm-none-eabi-gcc
+ls -l ~/cfs-satellite-system/toolchain/gcc-arm-none-eabi-9-2019-q4-major/bin/arm-none-eabi-gcc
 ```
 
 ### `qemu-system-arm` 或 `qemu-system-aarch64` 找不到
@@ -640,7 +643,7 @@ wsl --update
 
 ## 14. 下一位接手者的優先工作
 
-1. 將現有兩個 handoff branches 與 OSAL submodule branch 推送到可交接的 remotes，並在乾淨目錄測試 clone。
+1. 將 monorepo `main` 推送到可交接的 remote，並在乾淨目錄測試 clone。
 2. 選擇 FreeRTOS 網路方案：FreeRTOS+TCP、其他可用 IP stack，或 UART command ingest。
 3. 將 GroundSystem command 真正送入 cFE Software Bus。
 4. 將 mission app 改為訂閱 command MID，而非由 host bridge 模擬 command 行為。
