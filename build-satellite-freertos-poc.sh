@@ -23,7 +23,7 @@ echo "Workspace: ${SCRIPT_DIR}"
 echo "Build dir: ${BUILD_DIR}"
 echo
 
-make \
+make -C "${SCRIPT_DIR}" \
     O="${BUILD_DIR}" \
     SIMULATION=cortex-m3 \
     BUILDTYPE=debug \
