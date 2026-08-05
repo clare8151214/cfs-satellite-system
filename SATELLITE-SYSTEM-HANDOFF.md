@@ -6,13 +6,17 @@
 
 本文件提供新接手者從零建立並操作以下三個部分所需的資訊：
 
-1. `cFS-GroundSystem` 地面站。
-2. FreeRTOS + cFE + mission app 衛星 POC。
-3. 舊版 Ubuntu ARM64 cFS 衛星虛擬機。
+1. Ubuntu ARM64 QEMU 虛擬機與 Ubuntu 版 cFS。
+2. `cFS-GroundSystem` 地面站。
+3. FreeRTOS + cFE + mission app 衛星 POC。
 
-目前研究主線是 **FreeRTOS 衛星 POC**。Ubuntu ARM64 虛擬機保留作為功能比較、網路通訊參考與回退環境。
+第一次接手請依序完成：Ubuntu 與 Ubuntu 版 cFS -> GroundSystem -> FreeRTOS 衛星 POC。這樣可以先確認 QEMU、SSH、cFS 與地面站的基本環境，再進入 FreeRTOS 開發流程。
 
-## 0. 目前機器五分鐘啟動
+目前研究主線是 **FreeRTOS 衛星 POC**。Ubuntu ARM64 虛擬機同時保留作為功能比較、網路通訊參考與回退環境。
+
+## 0. 現有環境五分鐘啟動
+
+這一節只適用於已經完成環境建立的工作區；第一次接手請從第 5 節開始，先建立 Ubuntu ARM64 VM 與 Ubuntu 版 cFS。
 
 Terminal 1 啟動地面站：
 
@@ -152,214 +156,7 @@ git --version
 echo "$DISPLAY"
 ```
 
-## 6. 建立與啟動地面站
-
-### 6.1 一鍵啟動地面站
-
-```bash
-cd ~/cfs-satellite-system
-./start-ground-system.sh
-```
-
-主視窗必須保持開啟，因為 `RoutingService.py` 會：
-
-- 在 UDP `2234` 接收 telemetry。
-- 發布到 ZeroMQ `ipc:///tmp/GroundSystem-<使用者名稱>`。
-- 供 Telemetry System 訂閱封包。
-
-### 6.2 手動啟動地面站
-
-```bash
-cd ~/cfs-satellite-system/tools/cFS-GroundSystem
-make -C Subsystems/cmdUtil
-python3 GroundSystem.py
-```
-
-此目錄已包含 `Satellite Mission` 與 `Satellite Mission HK` 設定，不需要再 clone NASA GroundSystem 或手動複製 packet definition。
-
-### 6.3 FreeRTOS POC 的地面站操作
-
-1. 啟動 `GroundSystem.py`。
-2. 啟動 FreeRTOS 衛星並等待主視窗偵測到 `127.0.0.1`。
-3. 在主視窗選取該 spacecraft，再點選 `Start Telemetry System`。
-4. 在 telemetry 清單開啟 `Satellite Mission HK`。
-5. 點選 `Start Command System`。
-6. 在 Command System 選擇 `Satellite Mission`。
-7. 發送 `Mission No-Op`。
-
-目前 bridge 使用的 packet 定義：
-
-| 方向 | Packet ID | UDP port | 說明 |
-| --- | --- | --- | --- |
-| Ground -> bridge | `0x1882` | `1234` | Satellite Mission command |
-| Bridge -> Ground | `0x0883` | `2234` | Satellite Mission HK telemetry |
-
-Command code：
-
-| Code | 目前 bridge 行為 |
-| --- | --- |
-| `0` | No-Op，command counter 加一 |
-| `1` | 重設 bridge command/error counter |
-| `2` | bridge payload sample counter 加一 |
-
-注意：以上 command 行為目前由 bridge 執行，尚未送入 FreeRTOS mission app。
-
-Telemetry payload layout：
-
-| 欄位 | Packet offset | 型別 |
-| --- | ---: | --- |
-| Command Counter | 12 | `uint8` |
-| Error Counter | 13 | `uint8` |
-| Mission Mode | 14 | `uint8` |
-| Mission Status | 15 | `uint8` |
-| Uptime Seconds | 16 | little-endian `uint32` |
-| Payload Samples | 20 | little-endian `uint32` |
-| Battery Percent | 24 | little-endian `uint16` |
-
-## 7. 建立 FreeRTOS 衛星程式
-
-### 7.1 取得原始碼
-
-從交接 remote clone monorepo：
-
-```bash
-git clone https://github.com/clare8151214/cfs-satellite-system.git cfs-satellite-system
-cd cfs-satellite-system
-```
-
-所有必要原始碼已包含在 repository 內，不需要另外初始化 submodules。
-
-### 7.2 安裝 ARM bare-metal toolchain
-
-推薦直接執行 host setup：
-
-```bash
-cd ~/cfs-satellite-system
-./setup-host.sh
-```
-
-若只需要手動安裝 toolchain，建置腳本預期以下固定位置：
-
-```text
-~/cfs-satellite-system/toolchain/gcc-arm-none-eabi-9-2019-q4-major/bin/arm-none-eabi-gcc
-```
-
-建立方式：
-
-```bash
-cd ~/cfs-satellite-system
-mkdir -p toolchain
-wget -O /tmp/gcc-arm-none-eabi-9-2019-q4-major.tar.bz2 \
-    https://developer.arm.com/-/media/Files/downloads/gnu-rm/9-2019q4/gcc-arm-none-eabi-9-2019-q4-major-x86_64-linux.tar.bz2
-tar -xjf /tmp/gcc-arm-none-eabi-9-2019-q4-major.tar.bz2 -C toolchain
-```
-
-確認：
-
-```bash
-./toolchain/gcc-arm-none-eabi-9-2019-q4-major/bin/arm-none-eabi-gcc --version
-```
-
-若舊版 Arm 下載網址失效，最穩定的交接方式是一起保留目前的 `toolchain/gcc-arm-none-eabi-9-2019-q4-major` 目錄，或修改 build script 使用已驗證的新 toolchain。
-
-### 7.3 建置 flight image
-
-```bash
-cd ~/cfs-satellite-system
-./build-satellite-freertos-poc.sh
-```
-
-輸出應為：
-
-```text
-build-mps2/cortex-m3/default_mps2/mps2/core-mps2
-```
-
-確認映像：
-
-```bash
-file build-mps2/cortex-m3/default_mps2/mps2/core-mps2
-```
-
-應看到 32-bit ARM、statically linked ELF。
-
-### 7.4 一鍵啟動 FreeRTOS 衛星與 bridge
-
-```bash
-cd ~/cfs-satellite-system
-./start-satellite-freertos-poc.sh
-```
-
-預設行為：
-
-- 啟動 QEMU `mps2-an385`。
-- 載入 `core-mps2`。
-- 啟動 `satellite-ground-bridge.py`。
-- 在 `127.0.0.1:1234` 接收 GroundSystem command。
-- 將 telemetry 傳到 `127.0.0.1:2234`。
-
-只啟動 QEMU、不啟動 bridge：
-
-```bash
-SATELLITE_BRIDGE=0 ./start-satellite-freertos-poc.sh
-```
-
-停止方式：
-
-- bridge mode：`Ctrl-C`
-- direct QEMU mode：`Ctrl-a`，再按 `x`
-
-### 7.5 成功啟動的判斷方式
-
-至少應看到：
-
-```text
-ES Startup: Opened ES App Startup file: /cf/cfe_es_startup.scr
-ES Startup: Loading file: /cf/satellite_sample.so, APP: SAT_SAMPLE_APP
-Satellite mission app started on FreeRTOS
-CFE_ES_Main entering OPERATIONAL state
-SAT_MISSION_HK,...
-[bridge] UDP telemetry -> 127.0.0.1:2234
-```
-
-發送 GroundSystem No-Op 後應看到：
-
-```text
-[bridge] UDP command <- 127.0.0.1:<port> pkt=0x1882 cc=0 accepted
-[bridge] UDP telemetry -> 127.0.0.1:2234 ... reason=command-accepted
-```
-
-## 8. FreeRTOS mission app 如何組成
-
-| 檔案 | 用途 |
-| --- | --- |
-| `apps/satellite-sample/fsw/src/satellite_sample_app.c` | mission state machine 與 console telemetry |
-| `apps/satellite-sample/CMakeLists.txt` | 將 app 加入 cFE build |
-| `mps2_defs/targets.cmake` | 靜態連結 app 並建立 symbol table |
-| `mps2_defs/mps2_cfe_es_startup.scr` | cFE startup entry |
-| `apps/freertos-fatfs/src/os-impl-filesys.c` | 讓 cFE 可讀 embedded startup script |
-| `osal/src/os/freertos/todo/os-impl-module.c` | static module/symbol lookup |
-| `satellite-ground-bridge.py` | console 與 GroundSystem UDP 之間的 POC bridge |
-
-Mission app 狀態：
-
-- 啟動後進入 `SAFE`。
-- 約第 4 秒進入 `NOMINAL`。
-- `NOMINAL` 狀態會累加 payload samples 並消耗模擬電池。
-- 電量低於 30 時狀態變成 `LOW_BATTERY`。
-- 每秒輸出一行 `SAT_MISSION_HK`。
-
-FreeRTOS/cFE 目前已知限制：
-
-- `OS_MAX_API_NAME` 是 20，app 與 entry point 名稱不可過長。
-- `configMAX_PRIORITIES` 是 10，startup script 使用 priority `5`。
-- cFE dynamic loader 不可用，目前 app 是 static linked。
-- `/cf` 不是完整 filesystem，目前只特別支援 embedded startup script。
-- OSAL socket functions 回傳 `OS_ERR_NOT_IMPLEMENTED`。
-- QEMU cFE 時間尚未正確初始化。
-- 啟動可看到 CDS 大小不足訊息：目前配置 `8192`，需求約 `38932`。
-
-## 9. 使用 Ubuntu ARM64 衛星虛擬機
+## 6. 使用 Ubuntu ARM64 衛星虛擬機
 
 目前 VM 資訊：
 
@@ -419,11 +216,11 @@ sudo poweroff
 
 若只想立即離開 QEMU console，可按 `Ctrl-a`，再按 `x`，但這相當於直接關機。
 
-## 10. 從零建立 Ubuntu ARM64 QEMU VM
+## 7. 從零建立 Ubuntu ARM64 QEMU VM
 
 以下步驟會建立一台新的 Ubuntu ARM64 cloud-image VM。
 
-建議直接使用 monorepo 腳本，它會完成第 10.1 至 10.3 節：
+建議直接使用 monorepo 腳本，它會完成第 7.1 至 7.3 節：
 
 ```bash
 cd ~/cfs-satellite-system/vm/ubuntu-arm64
@@ -432,7 +229,7 @@ cd ~/cfs-satellite-system/vm/ubuntu-arm64
 
 以下保留手動流程供除錯與修改環境時參考。
 
-### 10.1 建立目錄並下載映像
+### 7.1 建立目錄並下載映像
 
 ```bash
 mkdir -p ~/cfs-satellite-system/vm/ubuntu-arm64
@@ -442,7 +239,7 @@ cp noble-server-cloudimg-arm64.img ubuntu-arm64.img
 qemu-img resize ubuntu-arm64.img 20G
 ```
 
-### 10.2 建立 SSH key
+### 7.2 建立 SSH key
 
 如果 host 尚無 SSH key：
 
@@ -458,7 +255,7 @@ ssh-keygen -y -f ~/.ssh/id_ed25519
 
 將輸出的整行文字填入下一節的 `<SSH_PUBLIC_KEY>`，不要放 private key。
 
-### 10.3 建立 cloud-init 設定
+### 7.3 建立 cloud-init 設定
 
 建立 `user-data`：
 
@@ -498,7 +295,7 @@ cloud-localds seed.img user-data meta-data
 
 修改 `user-data` 後必須重新執行 `cloud-localds`。已經初始化過的 VM 若要重新套用 cloud-init，建議建立新的 `ubuntu-arm64.img`，避免 instance-id cache 造成設定不更新。
 
-### 10.4 啟動新 VM
+### 7.4 啟動新 VM
 
 可使用目前的 `start-satellite-system.sh`，或直接執行：
 
@@ -522,7 +319,7 @@ qemu-system-aarch64 \
 ssh -p 2222 cfs@127.0.0.1
 ```
 
-### 10.5 在 ARM64 VM 內建立 NASA cFS
+### 7.5 在 ARM64 VM 內建立 NASA cFS
 
 以下命令都在 guest VM 內執行：
 
@@ -553,7 +350,7 @@ git checkout <已驗證的-cFS-commit>
 git submodule update --init --recursive
 ```
 
-## 11. Ubuntu VM 與地面站連線方式
+## 8. Ubuntu VM 與地面站連線方式
 
 QEMU user-mode networking 中：
 
@@ -572,7 +369,222 @@ QEMU user-mode networking 中：
 
 不要把 Ubuntu VM 的 telemetry destination 設成 guest 的 `127.0.0.1`，否則 telemetry 只會留在 VM 裡。
 
+## 9. 建立與啟動地面站
+
+### 9.1 一鍵啟動地面站
+
+```bash
+cd ~/cfs-satellite-system
+./start-ground-system.sh
+```
+
+主視窗必須保持開啟，因為 `RoutingService.py` 會：
+
+- 在 UDP `2234` 接收 telemetry。
+- 發布到 ZeroMQ `ipc:///tmp/GroundSystem-<使用者名稱>`。
+- 供 Telemetry System 訂閱封包。
+
+### 9.2 手動啟動地面站
+
+```bash
+cd ~/cfs-satellite-system/tools/cFS-GroundSystem
+make -C Subsystems/cmdUtil
+python3 GroundSystem.py
+```
+
+此目錄已包含 `Satellite Mission` 與 `Satellite Mission HK` 設定，不需要再 clone NASA GroundSystem 或手動複製 packet definition。
+
+### 9.3 FreeRTOS POC 的地面站操作
+
+1. 啟動 `GroundSystem.py`。
+2. 啟動 FreeRTOS 衛星並等待主視窗偵測到 `127.0.0.1`。
+3. 在主視窗選取該 spacecraft，再點選 `Start Telemetry System`。
+4. 在 telemetry 清單開啟 `Satellite Mission HK`。
+5. 點選 `Start Command System`。
+6. 在 Command System 選擇 `Satellite Mission`。
+7. 發送 `Mission No-Op`。
+
+目前 bridge 使用的 packet 定義：
+
+| 方向 | Packet ID | UDP port | 說明 |
+| --- | --- | --- | --- |
+| Ground -> bridge | `0x1882` | `1234` | Satellite Mission command |
+| Bridge -> Ground | `0x0883` | `2234` | Satellite Mission HK telemetry |
+
+Command code：
+
+| Code | 目前 bridge 行為 |
+| --- | --- |
+| `0` | No-Op，command counter 加一 |
+| `1` | 重設 bridge command/error counter |
+| `2` | bridge payload sample counter 加一 |
+
+注意：以上 command 行為目前由 bridge 執行，尚未送入 FreeRTOS mission app。
+
+Telemetry payload layout：
+
+| 欄位 | Packet offset | 型別 |
+| --- | ---: | --- |
+| Command Counter | 12 | `uint8` |
+| Error Counter | 13 | `uint8` |
+| Mission Mode | 14 | `uint8` |
+| Mission Status | 15 | `uint8` |
+| Uptime Seconds | 16 | little-endian `uint32` |
+| Payload Samples | 20 | little-endian `uint32` |
+| Battery Percent | 24 | little-endian `uint16` |
+
+## 10. 建立 FreeRTOS 衛星程式
+
+### 10.1 取得原始碼
+
+從交接 remote clone monorepo：
+
+```bash
+git clone https://github.com/clare8151214/cfs-satellite-system.git cfs-satellite-system
+cd cfs-satellite-system
+```
+
+所有必要原始碼已包含在 repository 內，不需要另外初始化 submodules。
+
+### 10.2 安裝 ARM bare-metal toolchain
+
+推薦直接執行 host setup：
+
+```bash
+cd ~/cfs-satellite-system
+./setup-host.sh
+```
+
+若只需要手動安裝 toolchain，建置腳本預期以下固定位置：
+
+```text
+~/cfs-satellite-system/toolchain/gcc-arm-none-eabi-9-2019-q4-major/bin/arm-none-eabi-gcc
+```
+
+建立方式：
+
+```bash
+cd ~/cfs-satellite-system
+mkdir -p toolchain
+wget -O /tmp/gcc-arm-none-eabi-9-2019-q4-major.tar.bz2 \
+    https://developer.arm.com/-/media/Files/downloads/gnu-rm/9-2019q4/gcc-arm-none-eabi-9-2019-q4-major-x86_64-linux.tar.bz2
+tar -xjf /tmp/gcc-arm-none-eabi-9-2019-q4-major.tar.bz2 -C toolchain
+```
+
+確認：
+
+```bash
+./toolchain/gcc-arm-none-eabi-9-2019-q4-major/bin/arm-none-eabi-gcc --version
+```
+
+若舊版 Arm 下載網址失效，最穩定的交接方式是一起保留目前的 `toolchain/gcc-arm-none-eabi-9-2019-q4-major` 目錄，或修改 build script 使用已驗證的新 toolchain。
+
+### 10.3 建置 flight image
+
+```bash
+cd ~/cfs-satellite-system
+./build-satellite-freertos-poc.sh
+```
+
+輸出應為：
+
+```text
+build-mps2/cortex-m3/default_mps2/mps2/core-mps2
+```
+
+確認映像：
+
+```bash
+file build-mps2/cortex-m3/default_mps2/mps2/core-mps2
+```
+
+應看到 32-bit ARM、statically linked ELF。
+
+### 10.4 一鍵啟動 FreeRTOS 衛星與 bridge
+
+```bash
+cd ~/cfs-satellite-system
+./start-satellite-freertos-poc.sh
+```
+
+預設行為：
+
+- 啟動 QEMU `mps2-an385`。
+- 載入 `core-mps2`。
+- 啟動 `satellite-ground-bridge.py`。
+- 在 `127.0.0.1:1234` 接收 GroundSystem command。
+- 將 telemetry 傳到 `127.0.0.1:2234`。
+
+只啟動 QEMU、不啟動 bridge：
+
+```bash
+SATELLITE_BRIDGE=0 ./start-satellite-freertos-poc.sh
+```
+
+停止方式：
+
+- bridge mode：`Ctrl-C`
+- direct QEMU mode：`Ctrl-a`，再按 `x`
+
+### 10.5 成功啟動的判斷方式
+
+至少應看到：
+
+```text
+ES Startup: Opened ES App Startup file: /cf/cfe_es_startup.scr
+ES Startup: Loading file: /cf/satellite_sample.so, APP: SAT_SAMPLE_APP
+Satellite mission app started on FreeRTOS
+CFE_ES_Main entering OPERATIONAL state
+SAT_MISSION_HK,...
+[bridge] UDP telemetry -> 127.0.0.1:2234
+```
+
+發送 GroundSystem No-Op 後應看到：
+
+```text
+[bridge] UDP command <- 127.0.0.1:<port> pkt=0x1882 cc=0 accepted
+[bridge] UDP telemetry -> 127.0.0.1:2234 ... reason=command-accepted
+```
+
+## 11. FreeRTOS mission app 如何組成
+
+| 檔案 | 用途 |
+| --- | --- |
+| `apps/satellite-sample/fsw/src/satellite_sample_app.c` | mission state machine 與 console telemetry |
+| `apps/satellite-sample/CMakeLists.txt` | 將 app 加入 cFE build |
+| `mps2_defs/targets.cmake` | 靜態連結 app 並建立 symbol table |
+| `mps2_defs/mps2_cfe_es_startup.scr` | cFE startup entry |
+| `apps/freertos-fatfs/src/os-impl-filesys.c` | 讓 cFE 可讀 embedded startup script |
+| `osal/src/os/freertos/todo/os-impl-module.c` | static module/symbol lookup |
+| `satellite-ground-bridge.py` | console 與 GroundSystem UDP 之間的 POC bridge |
+
+Mission app 狀態：
+
+- 啟動後進入 `SAFE`。
+- 約第 4 秒進入 `NOMINAL`。
+- `NOMINAL` 狀態會累加 payload samples 並消耗模擬電池。
+- 電量低於 30 時狀態變成 `LOW_BATTERY`。
+- 每秒輸出一行 `SAT_MISSION_HK`。
+
+FreeRTOS/cFE 目前已知限制：
+
+- `OS_MAX_API_NAME` 是 20，app 與 entry point 名稱不可過長。
+- `configMAX_PRIORITIES` 是 10，startup script 使用 priority `5`。
+- cFE dynamic loader 不可用，目前 app 是 static linked。
+- `/cf` 不是完整 filesystem，目前只特別支援 embedded startup script。
+- OSAL socket functions 回傳 `OS_ERR_NOT_IMPLEMENTED`。
+- QEMU cFE 時間尚未正確初始化。
+- 啟動可看到 CDS 大小不足訊息：目前配置 `8192`，需求約 `38932`。
+
 ## 12. 快速驗收清單
+
+### Ubuntu ARM64 VM
+
+- [ ] QEMU 可完成 Ubuntu 開機。
+- [ ] `ssh -p 2222 cfs@127.0.0.1` 可登入。
+- [ ] guest 的 `core-cpu1` 可進入 `OPERATIONAL state`。
+- [ ] command 可由 host UDP `1234` 送進 guest。
+- [ ] TO_LAB destination 設為 `10.0.2.2:2234` 後，地面站收到 telemetry。
 
 ### FreeRTOS POC
 
@@ -584,14 +596,6 @@ QEMU user-mode networking 中：
 - [ ] bridge 顯示 UDP telemetry 傳到 `2234`。
 - [ ] GroundSystem 可開啟 `Satellite Mission HK`。
 - [ ] `Mission No-Op` 顯示 command accepted。
-
-### Ubuntu ARM64 VM
-
-- [ ] QEMU 可完成 Ubuntu 開機。
-- [ ] `ssh -p 2222 cfs@127.0.0.1` 可登入。
-- [ ] guest 的 `core-cpu1` 可進入 `OPERATIONAL state`。
-- [ ] command 可由 host UDP `1234` 送進 guest。
-- [ ] TO_LAB destination 設為 `10.0.2.2:2234` 後，地面站收到 telemetry。
 
 ## 13. 常見問題
 
