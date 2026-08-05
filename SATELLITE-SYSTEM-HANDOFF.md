@@ -654,5 +654,3 @@ wsl --update
 ## 15. 其他文件與展示資料
 
 - `SATELLITE-FREERTOS-POC.md`：POC 技術摘要與架構。
-- `研究進度-cFS-FreeRTOS-POC-含逐字稿.pptx`：目前研究進度簡報與講稿。
-- `研究進度-逐字稿.md`：簡報逐字稿純文字版本。

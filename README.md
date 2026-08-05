@@ -7,7 +7,7 @@
 - `SAT_SAMPLE_APP` mission app。
 - cFS GroundSystem command/telemetry GUI。
 - Ubuntu ARM64 cFS 比較用虛擬機建立與啟動腳本。
-- 研究進度、架構及交接文件。
+- 架構及交接文件。
 
 所有原本的 Git submodules 都已轉成普通追蹤目錄。完成 clone 後不需要執行 `git submodule update`。
 
