@@ -641,16 +641,6 @@ wsl --update
 
 再重新開啟 WSL。若仍失敗，重新啟動 Windows 的 WSL service 或主機。
 
-## 14. 下一位接手者的優先工作
-
-1. 將 monorepo `main` 推送到可交接的 remote，並在乾淨目錄測試 clone。
-2. 選擇 FreeRTOS 網路方案：FreeRTOS+TCP、其他可用 IP stack，或 UART command ingest。
-3. 將 GroundSystem command 真正送入 cFE Software Bus。
-4. 將 mission app 改為訂閱 command MID，而非由 host bridge 模擬 command 行為。
-5. 讓 telemetry 經 cFE Software Bus 與 TO app 輸出，而非解析 console line。
-6. 調整 CDS 配置大小並修正 cFE/QEMU 時間來源。
-7. 為 build、boot、command、telemetry 建立可重複的自動測試。
-
-## 15. 其他文件與展示資料
+## 14. 其他文件與展示資料
 
 - `SATELLITE-FREERTOS-POC.md`：POC 技術摘要與架構。
