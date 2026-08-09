@@ -253,20 +253,19 @@ ssh -p 2222 cfs@127.0.0.1
 ```bash
 mkdir -p ~/nasa
 cd ~/nasa
-git clone https://github.com/nasa/cFS.git
+git clone --recurse-submodules https://github.com/nasa/cFS.git
 cd cFS
 git submodule update --init --recursive
-cp cfe/cmake/Makefile.sample Makefile
-cp -r cfe/cmake/sample_defs sample_defs
-make SIMULATION=native prep
-make -j"$(nproc)"
-make install
+make native_std.prep
+make -j"$(nproc)" native_std.install
 ```
+
+目前的 NASA cFS bundle 已在 repository root 提供 `Makefile` 與 `sample_defs/`。不要再將 `cfe/cmake/Makefile.sample` 複製到 root，否則會覆蓋新版 Makefile，並在建置時出現找不到 `MISSIONCONFIG` 的錯誤。
 
 啟動：
 
 ```bash
-cd ~/nasa/cFS/build/exe/cpu1
+cd ~/nasa/cFS/build-native_std/exe/cpu1
 ./core-cpu1
 ```
 
@@ -313,7 +312,7 @@ ssh -p 2222 cfs@127.0.0.1
 在 guest 裡啟動 Ubuntu 版本 cFS：
 
 ```bash
-cd ~/nasa/cFS/build/exe/cpu1
+cd ~/nasa/cFS/build-native_std/exe/cpu1
 ./core-cpu1
 ```
 
@@ -366,7 +365,7 @@ QEMU user-mode networking 中：
 
 1. Host 在 repository root 執行 `./vm/ubuntu-arm64/start-satellite-system.sh`。
 2. SSH 進 guest。
-3. Guest 在 `~/nasa/cFS/build/exe/cpu1` 執行 `./core-cpu1`。
+3. Guest 在 `~/nasa/cFS/build-native_std/exe/cpu1` 執行 `./core-cpu1`。
 4. Host 回到 repository root 執行 `./start-ground-system.sh`。
 5. 開啟 Command System。
 6. 發送 `Enable Tlm`，telemetry destination 輸入 `10.0.2.2`。
@@ -589,6 +588,20 @@ Terminal 2 啟動 FreeRTOS 衛星：
 - [ ] `Mission No-Op` 顯示 command accepted。
 
 ## 14. 常見問題
+
+### Ubuntu cFS 建置顯示找不到 `MISSIONCONFIG`
+
+若 CMake 顯示 `Unable to automatically determine the mission config directory`，通常是舊教學的 `cfe/cmake/Makefile.sample` 覆蓋了新版 cFS root Makefile。請在 guest VM 內恢復 Makefile，並改用 `native_std` build target：
+
+```bash
+cd ~/nasa/cFS
+git restore Makefile
+git submodule update --init --recursive
+make native_std.prep
+make -j"$(nproc)" native_std.install
+```
+
+舊流程產生的 `build/` 不會被新版的 `build-native_std/` 使用，可以先保留。成功後從 `~/nasa/cFS/build-native_std/exe/cpu1` 啟動 `core-cpu1`。
 
 ### `arm-none-eabi-gcc` 找不到
 
