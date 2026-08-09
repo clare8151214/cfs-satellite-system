@@ -52,19 +52,17 @@ flowchart LR
 
 | 用途 | 目前位置 |
 | --- | --- |
-| FreeRTOS 衛星 POC | `~/cfs-satellite-system` |
-| FreeRTOS flight image | `~/cfs-satellite-system/build-mps2/cortex-m3/default_mps2/mps2/core-mps2` |
-| 地面站 | `~/cfs-satellite-system/tools/cFS-GroundSystem` |
-| Ubuntu ARM64 VM | `~/cfs-satellite-system/vm/ubuntu-arm64` |
-| Ubuntu VM 內的 cFS | `/home/cfs/nasa/cFS` |
+| Monorepo | `<repository-root>`，由實際 clone 位置決定 |
+| FreeRTOS flight image | `<repository-root>/build-mps2/cortex-m3/default_mps2/mps2/core-mps2` |
+| 地面站 | `<repository-root>/tools/cFS-GroundSystem` |
+| Ubuntu ARM64 VM | `<repository-root>/vm/ubuntu-arm64` |
+| Ubuntu VM 內的 cFS | `/home/<VM_USER>/nasa/cFS`，預設為 `/home/cfs/nasa/cFS` |
 
 ## 4. 取得 Monorepo 與 Git 狀態
 
 截至 2026-08-05，FreeRTOS flight software、OSAL patch、GroundSystem、VM scripts 與文件已整合到單一 private repository：
 
-```text
-~/cfs-satellite-system
-```
+實際路徑由 clone 時所在的目錄決定，不要求使用者名稱或固定存放位置。
 
 原本的 submodules 已轉成普通追蹤目錄。新接手者只需要 clone 這一個 repository，不需要另外取得本機的 OSAL 或 GroundSystem branches，也不需要執行 `git submodule update`。各上游元件的 URL、版本與 SHA 記錄在 `THIRD_PARTY_SOURCES.md`。
 
@@ -74,12 +72,12 @@ Repository URL：<https://github.com/clare8151214/cfs-satellite-system>
 第一次建立工作區時先取得完整專案：
 
 ```bash
-cd ~
 git clone https://github.com/clare8151214/cfs-satellite-system.git
-git -C ~/cfs-satellite-system status --short --branch
+cd cfs-satellite-system
+git status --short --branch
 ```
 
-這是 private repository，執行 clone 的 GitHub 帳號必須先取得存取權限。
+這是 private repository，執行 clone 的 GitHub 帳號必須先取得存取權限。以下所有 host 指令都假設目前位於 repository root；若 clone 時指定了其他名稱或位置，只要先 `cd` 到該目錄即可。
 
 整合成果包括：
 
@@ -125,7 +123,8 @@ sudo apt install -y \
     python3 \
     python3-pyqt5 \
     python3-zmq \
-    libcanberra-gtk-module
+    libcanberra-gtk-module \
+    openssh-client
 ```
 
 確認工具：
@@ -151,8 +150,7 @@ echo "$DISPLAY"
 建議直接使用以下腳本，它會完成第 6.1 至 6.3 節：
 
 ```bash
-cd ~/cfs-satellite-system/vm/ubuntu-arm64
-./create-vm.sh
+./vm/ubuntu-arm64/create-vm.sh
 ```
 
 以下保留手動流程供除錯與修改環境時參考。
@@ -160,8 +158,7 @@ cd ~/cfs-satellite-system/vm/ubuntu-arm64
 ### 6.1 建立目錄並下載映像
 
 ```bash
-mkdir -p ~/cfs-satellite-system/vm/ubuntu-arm64
-cd ~/cfs-satellite-system/vm/ubuntu-arm64
+cd vm/ubuntu-arm64
 wget https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-arm64.img
 cp noble-server-cloudimg-arm64.img ubuntu-arm64.img
 qemu-img resize ubuntu-arm64.img 20G
@@ -169,7 +166,7 @@ qemu-img resize ubuntu-arm64.img 20G
 
 ### 6.2 建立 SSH key
 
-如果 host 尚無 SSH key：
+`create-vm.sh` 會使用目前 host 使用者的 Ed25519 或 RSA public key；兩者都不存在時會自動建立 `~/.ssh/id_ed25519`。若採用本節的手動流程且 host 尚無 SSH key：
 
 ```bash
 ssh-keygen -t ed25519
@@ -178,7 +175,7 @@ ssh-keygen -t ed25519
 查看 public key：
 
 ```bash
-ssh-keygen -y -f ~/.ssh/id_ed25519
+cat ~/.ssh/id_ed25519.pub
 ```
 
 將輸出的整行文字填入下一節的 `<SSH_PUBLIC_KEY>`，不要放 private key。
@@ -247,6 +244,8 @@ qemu-system-aarch64 \
 ssh -p 2222 cfs@127.0.0.1
 ```
 
+這裡的 `cfs` 是 VM guest 帳號，不是 host 使用者名稱。若建立 VM 時設定了 `VM_USER=其他名稱`，SSH 登入名稱也要使用相同值。
+
 ### 6.5 在 ARM64 VM 內建立 NASA cFS
 
 以下命令都在 guest VM 內執行：
@@ -284,7 +283,7 @@ git submodule update --init --recursive
 
 | 項目 | 值 |
 | --- | --- |
-| 目錄 | `~/cfs-satellite-system/vm/ubuntu-arm64` |
+| 目錄 | `<repository-root>/vm/ubuntu-arm64` |
 | Guest OS | Ubuntu 24.04 ARM64 |
 | Machine | QEMU `virt` |
 | CPU | Cortex-A72，4 cores |
@@ -293,15 +292,14 @@ git submodule update --init --recursive
 | SSH | host `127.0.0.1:2222` -> guest `22` |
 | cFS command | host UDP `1234` -> guest UDP `1234` |
 | Guest 帳號 | `cfs`，可用 `VM_USER` 覆寫 |
-| Guest cFS | `/home/cfs/nasa/cFS` |
+| Guest cFS | `/home/<VM_USER>/nasa/cFS`，預設為 `/home/cfs/nasa/cFS` |
 
 VM 磁碟、cloud-init seed 與 metadata 不納入 Git，第一次使用時由 `create-vm.sh` 下載 Ubuntu cloud image 並產生。若已有 `~/qemu-arm64` 的舊 VM，請將它視為獨立的既有環境；本 monorepo 的腳本預設使用上述 `vm/ubuntu-arm64` 目錄。
 
-完成第 6 節的 VM 與 cFS 建立流程後，啟動虛擬機：
+完成第 6 節的 VM 與 cFS 建立流程後，在 host terminal 回到 repository root 並啟動虛擬機：
 
 ```bash
-cd ~/cfs-satellite-system/vm/ubuntu-arm64
-./start-satellite-system.sh
+./vm/ubuntu-arm64/start-satellite-system.sh
 ```
 
 首次開機可能需要約 1 至 2 分鐘。另一個 terminal 登入：
@@ -309,6 +307,8 @@ cd ~/cfs-satellite-system/vm/ubuntu-arm64
 ```bash
 ssh -p 2222 cfs@127.0.0.1
 ```
+
+若建立 VM 時覆寫了 `VM_USER`，請將 SSH 指令中的 `cfs` 換成相同的 guest 帳號。
 
 在 guest 裡啟動 Ubuntu 版本 cFS：
 
@@ -336,7 +336,6 @@ sudo poweroff
 ### 8.1 一鍵啟動地面站
 
 ```bash
-cd ~/cfs-satellite-system
 ./start-ground-system.sh
 ```
 
@@ -349,7 +348,7 @@ cd ~/cfs-satellite-system
 ### 8.2 手動啟動地面站
 
 ```bash
-cd ~/cfs-satellite-system/tools/cFS-GroundSystem
+cd tools/cFS-GroundSystem
 make -C Subsystems/cmdUtil
 python3 GroundSystem.py
 ```
@@ -365,10 +364,10 @@ QEMU user-mode networking 中：
 
 建議啟動順序：
 
-1. Host 執行 `~/cfs-satellite-system/vm/ubuntu-arm64/start-satellite-system.sh`。
+1. Host 在 repository root 執行 `./vm/ubuntu-arm64/start-satellite-system.sh`。
 2. SSH 進 guest。
 3. Guest 在 `~/nasa/cFS/build/exe/cpu1` 執行 `./core-cpu1`。
-4. Host 執行 `~/cfs-satellite-system/tools/cFS-GroundSystem/GroundSystem.py`。
+4. Host 回到 repository root 執行 `./start-ground-system.sh`。
 5. 開啟 Command System。
 6. 發送 `Enable Tlm`，telemetry destination 輸入 `10.0.2.2`。
 7. 開啟 Telemetry System。
@@ -382,7 +381,6 @@ QEMU user-mode networking 中：
 第 4 節取得的 monorepo 已包含 FreeRTOS、cFE、OSAL、PSP、BSP 與 mission app，不需要另外 clone 或初始化 submodules：
 
 ```bash
-cd ~/cfs-satellite-system
 git status --short --branch
 ```
 
@@ -391,20 +389,18 @@ git status --short --branch
 推薦直接執行 host setup：
 
 ```bash
-cd ~/cfs-satellite-system
 ./setup-host.sh
 ```
 
 若只需要手動安裝 toolchain，建置腳本預期以下固定位置：
 
 ```text
-~/cfs-satellite-system/toolchain/gcc-arm-none-eabi-9-2019-q4-major/bin/arm-none-eabi-gcc
+toolchain/gcc-arm-none-eabi-9-2019-q4-major/bin/arm-none-eabi-gcc
 ```
 
 建立方式：
 
 ```bash
-cd ~/cfs-satellite-system
 mkdir -p toolchain
 wget -O /tmp/gcc-arm-none-eabi-9-2019-q4-major.tar.bz2 \
     https://developer.arm.com/-/media/Files/downloads/gnu-rm/9-2019q4/gcc-arm-none-eabi-9-2019-q4-major-x86_64-linux.tar.bz2
@@ -422,7 +418,6 @@ tar -xjf /tmp/gcc-arm-none-eabi-9-2019-q4-major.tar.bz2 -C toolchain
 ### 10.3 建置 flight image
 
 ```bash
-cd ~/cfs-satellite-system
 ./build-satellite-freertos-poc.sh
 ```
 
@@ -443,7 +438,6 @@ file build-mps2/cortex-m3/default_mps2/mps2/core-mps2
 ### 10.4 一鍵啟動 FreeRTOS 衛星與 bridge
 
 ```bash
-cd ~/cfs-satellite-system
 ./start-satellite-freertos-poc.sh
 ```
 
@@ -562,14 +556,12 @@ FreeRTOS/cFE 目前已知限制：
 Terminal 1 啟動地面站：
 
 ```bash
-cd ~/cfs-satellite-system
 ./start-ground-system.sh
 ```
 
 Terminal 2 啟動 FreeRTOS 衛星：
 
 ```bash
-cd ~/cfs-satellite-system
 ./start-satellite-freertos-poc.sh
 ```
 
@@ -603,7 +595,7 @@ cd ~/cfs-satellite-system
 確認 toolchain 是否位於 build script 預期位置：
 
 ```bash
-ls -l ~/cfs-satellite-system/toolchain/gcc-arm-none-eabi-9-2019-q4-major/bin/arm-none-eabi-gcc
+ls -l toolchain/gcc-arm-none-eabi-9-2019-q4-major/bin/arm-none-eabi-gcc
 ```
 
 ### `qemu-system-arm` 或 `qemu-system-aarch64` 找不到

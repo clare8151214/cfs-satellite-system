@@ -21,6 +21,7 @@ sudo apt-get install -y \
     qemu-efi-aarch64 \
     qemu-system-arm \
     qemu-utils \
+    openssh-client \
     wget
 
 if [[ ! -x "${TOOLCHAIN_DIR}/bin/arm-none-eabi-gcc" ]]; then

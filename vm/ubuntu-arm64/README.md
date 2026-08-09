@@ -4,16 +4,22 @@ This directory creates the legacy Ubuntu ARM64 satellite environment used for co
 
 ## Create
 
+From the repository root:
+
 ```bash
-./create-vm.sh
+./vm/ubuntu-arm64/create-vm.sh
 ```
 
-The script uses the host's `~/.ssh/id_ed25519.pub` by default. Override it with `SSH_PUBLIC_KEY_FILE` or change the guest account with `VM_USER`.
+The script can be run from any checkout location. It uses the current host user's Ed25519 or RSA public key. If neither exists, it creates `~/.ssh/id_ed25519` automatically. Override the public key with `SSH_PUBLIC_KEY_FILE` or change the guest account with `VM_USER`:
+
+```bash
+SSH_PUBLIC_KEY_FILE=/path/to/key.pub VM_USER=cfs ./vm/ubuntu-arm64/create-vm.sh
+```
 
 ## Start
 
 ```bash
-./start-satellite-system.sh
+./vm/ubuntu-arm64/start-satellite-system.sh
 ```
 
 Defaults:

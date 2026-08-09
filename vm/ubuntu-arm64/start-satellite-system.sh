@@ -15,7 +15,7 @@ CPUS="${CPUS:-4}"
 for required_file in "${IMAGE}" "${SEED_IMAGE}" "${BIOS}"; do
     if [[ ! -f "${required_file}" ]]; then
         echo "Missing required file: ${required_file}" >&2
-        echo "Run ./create-vm.sh first." >&2
+        echo "Run ${SCRIPT_DIR}/create-vm.sh first." >&2
         exit 1
     fi
 done
