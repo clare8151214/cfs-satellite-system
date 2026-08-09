@@ -506,17 +506,19 @@ Command code：
 
 注意：以上 command 行為目前由 bridge 執行，尚未送入 FreeRTOS mission app。
 
+GroundSystem 預設會在 telemetry definition offset 上加 `4`。bridge 因此產生 10-byte secondary/extension header，使 payload 從實際 packet offset `16` 開始；使用者不需要將 Tlm header version 改成 `Custom`。
+
 Telemetry payload layout：
 
-| 欄位 | Packet offset | 型別 |
-| --- | ---: | --- |
-| Command Counter | 12 | `uint8` |
-| Error Counter | 13 | `uint8` |
-| Mission Mode | 14 | `uint8` |
-| Mission Status | 15 | `uint8` |
-| Uptime Seconds | 16 | little-endian `uint32` |
-| Payload Samples | 20 | little-endian `uint32` |
-| Battery Percent | 24 | little-endian `uint16` |
+| 欄位 | Definition offset | 實際 packet offset | 型別 |
+| --- | ---: | ---: | --- |
+| Command Counter | 12 | 16 | `uint8` |
+| Error Counter | 13 | 17 | `uint8` |
+| Mission Mode | 14 | 18 | `uint8` |
+| Mission Status | 15 | 19 | `uint8` |
+| Uptime Seconds | 16 | 20 | little-endian `uint32` |
+| Payload Samples | 20 | 24 | little-endian `uint32` |
+| Battery Percent | 24 | 28 | little-endian `uint16` |
 
 ## 11. FreeRTOS mission app 如何組成
 
@@ -588,6 +590,10 @@ Terminal 2 啟動 FreeRTOS 衛星：
 - [ ] `Mission No-Op` 顯示 command accepted。
 
 ## 14. 常見問題
+
+### Satellite Mission HK 持續顯示 `Can't unpack buffer of length 0`
+
+舊版 bridge 只產生 6-byte secondary header，但 GroundSystem 會在 packet definition offset 上再加 `4`，造成最後的 Battery 欄位超出封包。最新版 bridge 已使用 10-byte secondary/extension header；更新 repository 後保持 GroundSystem 預設的 Tlm header version 與 offset `4`，並重新啟動 FreeRTOS POC。不要再使用暫時性的 `Custom / 0` 設定。
 
 ### Ubuntu cFS 建置顯示找不到 `MISSIONCONFIG`
 

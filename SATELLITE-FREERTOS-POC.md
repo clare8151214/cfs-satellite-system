@@ -16,6 +16,7 @@ All commands below are run from the repository root, regardless of where the rep
 - Mission app: static `satellite-sample` app loaded as `SAT_SAMPLE_APP`
 - Mission behavior: emits Satellite Mission HK state, mode, status, uptime, payload, and battery telemetry
 - Ground bridge: forwards telemetry to `cFS-GroundSystem` on UDP `2234` and receives commands on UDP `1234`
+- Telemetry compatibility: bridge payload starts at packet offset `16`, matching the GroundSystem default `4`-byte offset
 - Smoke test: cFE boots, starts the mission app, reaches `OPERATIONAL state`, and sends GroundSystem telemetry
 
 ## Build

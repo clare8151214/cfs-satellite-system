@@ -48,7 +48,9 @@ class SatelliteGroundBridge:
         with self.state_lock:
             state = MissionState(**self.state.__dict__)
 
-        secondary_header = b"\x00" * 6
+        # GroundSystem adds its default 4-byte telemetry offset to field
+        # definitions based on the traditional 12-byte cFS header.
+        secondary_header = b"\x00" * 10
         payload = struct.pack(
             "<BBBBIIHH",
             state.command_counter & 0xFF,
